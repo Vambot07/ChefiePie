@@ -44,18 +44,20 @@ const ViewSavedRecipeScreen = () => {
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [isListening, setIsListening] = useState<boolean>(false);
     const [isPaused, setIsPaused] = useState<boolean>(false);
-    const [isSpeaking, setIsSpeaking] = useState<boolean>(false); // NEW: Track speaking state
+    const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
     const [timerActive, setTimerActive] = useState<boolean>(false);
     const [timerMinutes, setTimerMinutes] = useState<number>(0);
     const [recognizedText, setRecognizedText] = useState<string>('');
-    const [assistantText, setAssistantText] = useState<string>(''); // NEW: Track what assistant is saying
-    const [speechRate, setSpeechRate] = useState<number>(0.75); // Adjustable speech rate (0.5 = slow, 0.75 = normal, 1.0 = fast)
+    const [assistantText, setAssistantText] = useState<string>('');
+    const [speechRate, setSpeechRate] = useState<number>(0.75);
     const [showIntroModal, setShowIntroModal] = useState<boolean>(false);
-    const [wakeWordListening, setWakeWordListening] = useState<boolean>(false); // NEW: Wake word detection mode
-    const [isProcessingAI, setIsProcessingAI] = useState<boolean>(false); // NEW: AI processing state
-    const [showWakeWordModal, setShowWakeWordModal] = useState<boolean>(false); // NEW: Modal for wake word indicator
-    const [activationStage, setActivationStage] = useState<'idle' | 'ready' | 'command'>('idle'); // NEW: Activation flow stage
-    const [autoShowModal, setAutoShowModal] = useState<boolean>(false); // Auto-show modal when listening/speaking
+    const [wakeWordListening, setWakeWordListening] = useState<boolean>(false);
+    const [isProcessingAI, setIsProcessingAI] = useState<boolean>(false);
+    const [showWakeWordModal, setShowWakeWordModal] = useState<boolean>(false);
+    const [activationStage, setActivationStage] = useState<'idle' | 'ready' | 'command'>('idle');
+    const [autoShowModal, setAutoShowModal] = useState<boolean>(false);
+    const [isCoolingDown, setIsCoolingDown] = useState<boolean>(false);
+    const [cooldownTime, setCooldownTime] = useState<number>(0);
 
     // Confirmation and Success Modal states
     const [showUnsaveConfirmation, setShowUnsaveConfirmation] = useState(false);
@@ -65,11 +67,13 @@ const ViewSavedRecipeScreen = () => {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const scrollViewRef = useRef<ScrollView>(null);
     const voiceModeRef = useRef<boolean>(false);
-    const isSpeakingRef = useRef<boolean>(false); // NEW: Ref for immediate synchronous check
-    const lastSpeechEndTime = useRef<number>(0); // NEW: Timestamp of last speech end for cooldown
-    const lastSpeechLength = useRef<number>(0); // NEW: Length of last speech for dynamic cooldown
-    const recentAppSpeech = useRef<string[]>([]); // NEW: Track recent app speech for echo detection
-    const alarmSound = useRef<Audio.Sound | null>(null); // NEW: Alarm sound reference
+    const isSpeakingRef = useRef<boolean>(false);
+    const lastSpeechEndTime = useRef<number>(0);
+    const lastSpeechLength = useRef<number>(0);
+    const recentAppSpeech = useRef<string[]>([]);
+    const alarmSound = useRef<Audio.Sound | null>(null);
+    const currentStepRef = useRef<number>(0);
+    const recipeRef = useRef<any>(null);
 
     const shadowStyle = Platform.select({
         android: { elevation: 3 },
@@ -102,6 +106,15 @@ const ViewSavedRecipeScreen = () => {
             return () => clearTimeout(timer);
         }
     }, [voiceMode, isListening, isSpeaking, isProcessingAI, recognizedText, assistantText]);
+
+    // Sync state with refs
+    useEffect(() => {
+        currentStepRef.current = currentStep;
+    }, [currentStep]);
+
+    useEffect(() => {
+        recipeRef.current = recipe;
+    }, [recipe]);
 
     // Load alarm sound on mount
     useEffect(() => {
@@ -247,8 +260,11 @@ const ViewSavedRecipeScreen = () => {
         // DYNAMIC COOLDOWN: Longer cooldown for longer speeches to prevent echo
         // Base cooldown: 3 seconds
         // Add 50ms per character of last speech (up to max 10 seconds)
-        const baseCooldown = 3000;
-        const additionalCooldown = Math.min(lastSpeechLength.current * 50, 7000);
+        // DYNAMIC COOLDOWN: Longer cooldown for longer speeches to prevent echo
+        // Base cooldown: 1.5 seconds (reduced for better UX)
+        // Add 40ms per character of last speech (up to max 6 seconds total)
+        const baseCooldown = 1500;
+        const additionalCooldown = Math.min(lastSpeechLength.current * 40, 4500);
         const dynamicCooldown = baseCooldown + additionalCooldown;
 
         const timeSinceLastSpeech = Date.now() - lastSpeechEndTime.current;
@@ -355,7 +371,7 @@ const ViewSavedRecipeScreen = () => {
             setTimeout(() => startWakeWordListening(), 500);
         }
         // Only restart if not speaking and still in voice mode
-        else if (voiceMode && !isPaused && !isSpeaking) {
+        else if (voiceModeRef.current && !isPaused && !isSpeaking) {
             setTimeout(() => startListening(), 500);
         }
     });
@@ -372,7 +388,7 @@ const ViewSavedRecipeScreen = () => {
                 setTimeout(() => startWakeWordListening(), 1000);
             }
             // Restart voice mode listening
-            else if (voiceMode && !isPaused && !isSpeaking) {
+            else if (voiceModeRef.current && !isPaused && !isSpeaking) {
                 setTimeout(() => startListening(), 1000);
             }
             return; // Don't change UI state for silent periods
@@ -570,6 +586,29 @@ const ViewSavedRecipeScreen = () => {
                     // Record the timestamp when speech ends for cooldown checking
                     lastSpeechEndTime.current = Date.now();
 
+                    // Calculate dynamic cooldown
+                    // Calculate dynamic cooldown
+                    // Reduced based on user feedback to be snappier
+                    const baseCooldown = 1500; // Reduced from 3000
+                    const additionalCooldown = Math.min(lastSpeechLength.current * 40, 4500); // Reduced multiplier and cap
+                    const dynamicCooldown = baseCooldown + additionalCooldown;
+
+                    // Set visual cooldown state
+                    setIsCoolingDown(true);
+                    setCooldownTime(Math.ceil(dynamicCooldown / 1000));
+
+                    // Start countdown
+                    const cooldownInterval = setInterval(() => {
+                        setCooldownTime(prev => {
+                            if (prev <= 1) {
+                                clearInterval(cooldownInterval);
+                                setIsCoolingDown(false);
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+
                     // Keep blocking recognition for a bit longer to avoid tail-end echo
                     setTimeout(() => {
                         isSpeakingRef.current = false;
@@ -578,7 +617,7 @@ const ViewSavedRecipeScreen = () => {
                     }, 500); // Increased to 500ms buffer after speech ends
 
                     // Resume listening after speech is done (only if still in voice mode)
-                    if (voiceMode && !isPaused) {
+                    if (voiceModeRef.current && !isPaused) {
                         setTimeout(() => {
                             console.log('🎤 Resuming listening after speech...');
                             startListening();
@@ -593,7 +632,7 @@ const ViewSavedRecipeScreen = () => {
                     setIsSpeaking(false);
 
                     // Still try to resume listening even if speech fails
-                    if (voiceMode && !isPaused) {
+                    if (voiceModeRef.current && !isPaused) {
                         setTimeout(() => {
                             startListening();
                         }, 1000);
@@ -954,7 +993,7 @@ const ViewSavedRecipeScreen = () => {
             } else if (!timerActive) {
                 pauseAssistant();
             } else {
-                speak('Timer is already paused');
+                speak('Timer is already paused', true);
             }
         }
         // Check for resume - prioritize timer if paused, otherwise resume assistant
@@ -965,20 +1004,20 @@ const ViewSavedRecipeScreen = () => {
             } else if (isPaused) {
                 resumeAssistant();
             } else {
-                speak('Nothing to resume');
+                speak('Nothing to resume', true);
             }
         }
         // Check for standard navigation commands
         else if (command.includes('next') || command.includes('continue')) {
-            speak('Next step');
+            speak('Next step', true);
             setTimeout(() => goToNextStep(), 800);
         }
         else if (command.includes('previous') || command.includes('back')) {
-            speak('Going back');
+            speak('Going back', true);
             setTimeout(() => goToPreviousStep(), 800);
         }
         else if (command.includes('repeat') || command.includes('again')) {
-            speak('Repeating');
+            speak('Repeating', true);
             setTimeout(() => readCurrentStep(), 600);
         }
         else if (command.includes('stop') || command.includes('exit')) {
@@ -1003,13 +1042,16 @@ const ViewSavedRecipeScreen = () => {
 
             try {
                 // Build recipe context for Gemini
+                const currentRecipe = recipe || recipeRef.current;
+                const activeStep = currentStepRef.current;
+
                 const recipeContext = {
-                    recipeName: recipe?.title || 'Unknown Recipe',
-                    currentStepNumber: currentStep + 1,
-                    totalSteps: recipe?.steps?.length || 0,
-                    currentStepDetails: recipe?.steps?.[currentStep]?.details || 'No step details',
-                    ingredients: recipe?.ingredients?.map((ing: any) => ing.name) || [],
-                    difficulty: recipe?.difficulty || 'N/A'
+                    recipeName: currentRecipe?.title || 'Unknown Recipe',
+                    currentStepNumber: activeStep + 1,
+                    totalSteps: currentRecipe?.steps?.length || 0,
+                    currentStepDetails: currentRecipe?.steps?.[activeStep]?.details || 'No step details',
+                    ingredients: currentRecipe?.ingredients?.map((ing: any) => ing.name) || [],
+                    difficulty: currentRecipe?.difficulty || 'N/A'
                 };
 
                 const aiResponse = await getVoiceResponse(command, recipeContext);
@@ -1136,12 +1178,12 @@ const ViewSavedRecipeScreen = () => {
             timerRef.current = null;
         }
         setTimerPaused(true);
-        speak('Timer paused');
+        speak('Timer paused', true);
     };
 
     const resumeTimer = () => {
         setTimerPaused(false);
-        speak('Timer resumed');
+        speak('Timer resumed', true);
 
         let remainingSeconds = timerSeconds;
 
@@ -1164,22 +1206,27 @@ const ViewSavedRecipeScreen = () => {
     };
 
     const goToNextStep = () => {
-        if (!recipe?.steps || currentStep >= recipe.steps.length - 1) {
+        const currentRecipe = recipe || recipeRef.current;
+        const activeStep = currentStepRef.current;
+
+        if (!currentRecipe?.steps || activeStep >= currentRecipe.steps.length - 1) {
             speak('You have completed all steps! Cooking is done. Enjoy your meal!');
             return;
         }
-        const nextStep = currentStep + 1;
+        const nextStep = activeStep + 1;
         setCurrentStep(nextStep);
         scrollToStep(nextStep);
         readStep(nextStep);
     };
 
     const goToPreviousStep = () => {
-        if (currentStep <= 0) {
-            speak('You are already at the first step');
+        const activeStep = currentStepRef.current;
+
+        if (activeStep <= 0) {
+            speak('You are already at the first step', true);
             return;
         }
-        const prevStep = currentStep - 1;
+        const prevStep = activeStep - 1;
         setCurrentStep(prevStep);
         scrollToStep(prevStep);
         readStep(prevStep);
@@ -1197,7 +1244,7 @@ const ViewSavedRecipeScreen = () => {
     };
 
     const readCurrentStep = () => {
-        readStep(currentStep);
+        readStep(currentStepRef.current);
     };
 
     const scrollToStep = (stepIndex: number) => {
@@ -1215,12 +1262,12 @@ const ViewSavedRecipeScreen = () => {
         Speech.stop();
         isSpeakingRef.current = false; // Clear the ref
         setIsSpeaking(false);
-        speak('Voice assistant paused. Say resume to continue');
+        speak('Voice assistant paused. Say resume to continue', true);
     };
 
     const resumeAssistant = () => {
         setIsPaused(false);
-        speak('Resuming voice assistant');
+        speak('Resuming voice assistant', true);
         // startListening will be called by speak's onDone callback
     };
 
@@ -1363,11 +1410,13 @@ const ViewSavedRecipeScreen = () => {
                     contentContainerStyle={{ paddingBottom: 40 }}
                 >
                     <View className="p-4">
+                        {/* Recipe Image with Gradient Overlay */}
                         <View className="relative mb-4">
                             <Image
                                 source={{ uri: recipe.image }}
                                 className="w-full h-56 rounded-2xl"
                             />
+
 
                             {/* YouTube Video Link - Top Left */}
                             {recipe.youtube && (
@@ -1913,7 +1962,7 @@ const ViewSavedRecipeScreen = () => {
                                         <Ionicons
                                             name={isListening ? "mic" : isSpeaking ? "volume-high" : isProcessingAI ? "sparkles" : "mic"}
                                             size={20}
-                                            color={isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : isListening ? '#10B981' : '#6B7280'}
+                                            color={isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : (isCoolingDown ? '#F59E0B' : (isListening ? '#10B981' : '#6B7280'))}
                                         />
                                     </View>
                                     <View className="flex-1">
@@ -1936,23 +1985,24 @@ const ViewSavedRecipeScreen = () => {
                                 {/* Status Card - Clean and Simple */}
                                 <View className={`rounded-xl p-3 mb-3`}
                                     style={{
-                                        backgroundColor: isProcessingAI ? '#F3E8FF' : isSpeaking ? '#DBEAFE' : isListening ? '#D1FAE5' : '#F3F4F6',
+                                        backgroundColor: isProcessingAI ? '#F3E8FF' : isSpeaking ? '#DBEAFE' : (isCoolingDown ? '#FEF3C7' : (isListening ? '#D1FAE5' : '#F3F4F6')),
                                     }}>
                                     {/* Status Header */}
                                     <View className="flex-row items-center mb-2">
                                         <View className="w-2 h-2 rounded-full mr-2"
                                             style={{
-                                                backgroundColor: isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : isListening ? '#10B981' : '#6B7280',
+                                                backgroundColor: isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : (isCoolingDown ? '#F59E0B' : (isListening ? '#10B981' : '#6B7280')),
                                             }} />
                                         <Text className="font-bold text-sm"
                                             style={{
-                                                color: isProcessingAI ? '#7C3AED' : isSpeaking ? '#2563EB' : isListening ? '#059669' : '#374151',
+                                                color: isProcessingAI ? '#7C3AED' : isSpeaking ? '#2563EB' : (isCoolingDown ? '#B45309' : (isListening ? '#059669' : '#374151')),
                                             }}>
                                             {isProcessingAI ? '🤖 AI Processing' :
                                                 isSpeaking ? '🔊 Speaking' :
-                                                    isListening ? '👂 Listening' :
-                                                        wakeWordListening ? '💬 Say "Ready"' :
-                                                            voiceMode ? '✨ Voice Active' : '🎤 Ready to Start'}
+                                                    isCoolingDown ? `⏳ Wait ${cooldownTime}s...` :
+                                                        isListening ? '👂 Listening' :
+                                                            wakeWordListening ? '💬 Say "Ready"' :
+                                                                voiceMode ? '✨ Voice Active' : '🎤 Ready to Start'}
                                         </Text>
                                     </View>
 

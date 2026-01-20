@@ -3,7 +3,6 @@ import {
     Text,
     TouchableOpacity,
     ScrollView,
-    Alert,
     TextInput,
     Modal,
     KeyboardAvoidingView,
@@ -56,6 +55,19 @@ const SettingScreen = () => {
     const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
     const [showPriSecModal, setShowPriSecModal] = useState<boolean>(false);
 
+    // Generic Success/Error Modal State
+    const [messageModalVisible, setMessageModalVisible] = useState(false);
+    const [messageModalType, setMessageModalType] = useState<'success' | 'error'>('success');
+    const [messageModalTitle, setMessageModalTitle] = useState('');
+    const [messageModalMessage, setMessageModalMessage] = useState('');
+
+    const showMessageModal = (type: 'success' | 'error', title: string, message: string) => {
+        setMessageModalType(type);
+        setMessageModalTitle(title);
+        setMessageModalMessage(message);
+        setMessageModalVisible(true);
+    };
+
 
 
     const profileImage = user?.profileImage;
@@ -92,13 +104,13 @@ const SettingScreen = () => {
         try {
             // 1️. Check sama ada current email
             if (trimmedEmail === user?.email) {
-                Alert.alert('No Change', 'This is already your current email address.');
+                showMessageModal('error', 'No Change', 'This is already your current email address.');
                 return;
             }
 
             // 2️a. Basic format validation
             if (!emailRegex.test(trimmedEmail)) {
-                Alert.alert('Error', 'Please enter a valid email address');
+                showMessageModal('error', 'Error', 'Please enter a valid email address');
                 return;
             }
 
@@ -107,7 +119,7 @@ const SettingScreen = () => {
             const hasValidDomain = validDomains.some(domain => trimmedEmail.toLowerCase().endsWith(domain));
 
             if (!hasValidDomain) {
-                Alert.alert('Error', 'Please enter a valid email domain (e.g., .com, .my, .edu.my)');
+                showMessageModal('error', 'Error', 'Please enter a valid email domain (e.g., .com, .my, .edu.my)');
                 return;
             }
 
@@ -117,7 +129,7 @@ const SettingScreen = () => {
             const methods = await fetchSignInMethodsForEmail(auth, trimmedEmail);
 
             if (methods.length > 0) {
-                Alert.alert('Error', 'This email address is already in use by another account.');
+                showMessageModal('error', 'Error', 'This email address is already in use by another account.');
                 setLoading(false);
                 return;
             }
@@ -125,7 +137,7 @@ const SettingScreen = () => {
             // 4. Get Firebase user
             const firebaseUser = auth.currentUser;
             if (!firebaseUser) {
-                Alert.alert('Error', 'No authenticated user found.');
+                showMessageModal('error', 'Error', 'No authenticated user found.');
                 setLoading(false);
                 return;
             }
@@ -134,21 +146,11 @@ const SettingScreen = () => {
             await verifyBeforeUpdateEmail(firebaseUser, trimmedEmail);
 
             // 6. Alert user untuk check email
-            Alert.alert(
-                'Verification Email Sent',
-                `We've sent a verification link to ${trimmedEmail}.\n\nPlease check your inbox and click the link to verify your new email address.\n\nAfter verification, sign in again with your new email.`,
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setShowEditEmailModal(false);
-                            setEmail(user?.email || '');
-                            logout();
-                            Alert.alert('You succesfully logout!');
-                        }
-                    }
-                ]
-            );
+            setShowEditEmailModal(false);
+            showMessageModal('success', 'Verification Email Sent', `We've sent a verification link to ${trimmedEmail}.\n\nPlease check your inbox and click the link to verify your new email address.\n\nAfter verification, sign in again with your new email.`);
+
+            // Note: We'll handle logout after they close the success modal if needed, or just let them stay logged in until the system kicks them out or they verify.
+            // For now, let's keep it simple. If you want auto-logout, we can do it in the onClose of the modal.
 
         } catch (error: any) {
             console.error("❌ Error updating email:", error);
@@ -166,7 +168,7 @@ const SettingScreen = () => {
                 errorMessage = 'Too many requests. Please try again later.';
             }
 
-            Alert.alert('Error', errorMessage);
+            showMessageModal('error', 'Error', errorMessage);
         } finally {
             setLoading(false);
         }
@@ -181,24 +183,24 @@ const SettingScreen = () => {
 
         } catch (error) {
             console.error("Error signing out: ", error);
-            Alert.alert("Logout Error", "Could not log out. Please try again.");
+            showMessageModal('error', "Logout Error", "Could not log out. Please try again.");
         }
     };
 
     // Handle password change
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            Alert.alert('Error', 'All password fields are required');
+            showMessageModal('error', 'Error', 'All password fields are required');
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            Alert.alert('Error', 'New passwords do not match');
+            showMessageModal('error', 'Error', 'New passwords do not match');
             return;
         }
 
         if (newPassword.length < 6) {
-            Alert.alert('Error', 'New password must be at least 6 characters long');
+            showMessageModal('error', 'Error', 'New password must be at least 6 characters long');
             return;
         }
 
@@ -208,7 +210,7 @@ const SettingScreen = () => {
             const firebaseUser = auth.currentUser;
 
             if (!firebaseUser || !firebaseUser.email) {
-                Alert.alert('Error', 'No authenticated user found. Please sign in again.');
+                showMessageModal('error', 'Error', 'No authenticated user found. Please sign in again.');
                 setLoading(false);
                 return;
             }
@@ -234,8 +236,9 @@ const SettingScreen = () => {
                 console.log("✅ Password updated in Firestore!");
             }
 
-            Alert.alert('Success', 'Password changed successfully!');
             setShowChangePasswordModal(false);
+            showMessageModal('success', 'Success', 'Password changed successfully!');
+
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
@@ -259,7 +262,7 @@ const SettingScreen = () => {
             }
 
             //console.error('Password change error:', error);
-            Alert.alert('Error', errorMessage);
+            showMessageModal('error', 'Error', errorMessage);
         } finally {
             setLoading(false);
         }
@@ -532,6 +535,25 @@ const SettingScreen = () => {
                 icon="app-settings-alt"
                 iconType="material"
                 onClose={() => setShowAboutModal(false)}
+
+            />
+
+            {/* Generic Success/Error Modal */}
+            <SuccessModal
+                visible={messageModalVisible}
+                title={messageModalTitle}
+                message={messageModalMessage}
+                icon={messageModalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={messageModalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={messageModalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                onClose={() => {
+                    setMessageModalVisible(false);
+                    // Special handling if needed, e.g. logout after email verification sent
+                    if (messageModalTitle === 'Verification Email Sent') {
+                        setEmail(user?.email || '');
+                        logout();
+                    }
+                }}
             />
 
 

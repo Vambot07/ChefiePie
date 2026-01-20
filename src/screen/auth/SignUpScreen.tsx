@@ -8,6 +8,7 @@ import { updateProfileImage } from '~/utils/uploadImage';
 import { Ionicons, Feather, AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { signInWithGoogle } from '~/utils/socialAuth';
 import ImagePickerModal from '~/components/modal/ImagePickerModal';
+import SuccessModal from '~/components/modal/SuccessModal';
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
@@ -26,12 +27,29 @@ const SignUpScreen = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showImagePicker, setShowImagePicker] = useState(false);
 
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'success' | 'error'>('success');
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalMessage, setModalMessage] = useState('');
+
+    const showModal = (type: 'success' | 'error', title: string, message: string) => {
+        setModalType(type);
+        setModalTitle(title);
+        setModalMessage(message);
+        setModalVisible(true);
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+    };
+
     const pickImage = async () => {
         try {
             console.log('🖼️ Opening gallery...');
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Gallery permission is required');
+                showModal('error', 'Permission needed', 'Gallery permission is required');
                 return;
             }
 
@@ -50,7 +68,7 @@ const SignUpScreen = () => {
             }
         } catch (error: any) {
             console.error('❌ Gallery error:', error);
-            Alert.alert('Gallery Error', 'Failed to open gallery');
+            showModal('error', 'Gallery Error', 'Failed to open gallery');
         }
     };
 
@@ -59,7 +77,7 @@ const SignUpScreen = () => {
             console.log('📷 Opening camera...');
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Camera permission is required');
+                showModal('error', 'Permission needed', 'Camera permission is required');
                 return;
             }
 
@@ -76,30 +94,30 @@ const SignUpScreen = () => {
             }
         } catch (error: any) {
             console.error('❌ Camera error:', error);
-            Alert.alert('Camera Error', 'Failed to open camera');
+            showModal('error', 'Camera Error', 'Failed to open camera');
         }
     }
 
     const handleSignUp = async () => {
         try {
             if (!username || !email || !password || !confirmPassword) {
-                Alert.alert('Error', 'Please fill in all fields');
+                showModal('error', 'Error', 'Please fill in all fields');
                 return;
             }
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
-                Alert.alert('Error', 'Please enter a valid email address');
+                showModal('error', 'Error', 'Please enter a valid email address');
                 return;
             }
 
             if (password !== confirmPassword) {
-                Alert.alert('Error', 'Passwords do not match. Please try again.');
+                showModal('error', 'Error', 'Passwords do not match. Please try again.');
                 return;
             }
 
             if (password.length < 6) {
-                Alert.alert('Error', 'Password must be at least 6 characters long');
+                showModal('error', 'Error', 'Password must be at least 6 characters long');
                 return;
             }
 
@@ -111,7 +129,7 @@ const SignUpScreen = () => {
             const response = await signup(username, email, password);
 
             if (!response.success) {
-                Alert.alert('Signup Failed', response.msg + '\nPlease try again later');
+                showModal('error', 'Signup Failed', (response.msg || 'Unknown error') + '\nPlease try again later');
                 return;
             }
 
@@ -148,11 +166,11 @@ const SignUpScreen = () => {
             }
 
             setLoadingStatus('');
-            Alert.alert('Success! 🎉', 'Your account has been created successfully!');
+            console.log('Success! 🎉', 'Your account has been created successfully!');
 
         } catch (error) {
             console.error('❌ Signup error:', error);
-            Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
+            showModal('error', 'Error', error instanceof Error ? error.message : 'An unknown error occurred');
         } finally {
             setLoading(false);
             setLoadingStatus('');
@@ -165,14 +183,12 @@ const SignUpScreen = () => {
             setLoadingStatus('Signing up with Google...');
             const result = await signInWithGoogle();
 
-            if (result.success) {
-                Alert.alert('Success!', 'Your account has been created successfully!');
-            } else {
-                Alert.alert('Sign Up Failed', result.msg);
+            if (!result.success) {
+                showModal('error', 'Sign Up Failed', result.msg || '');
             }
         } catch (error) {
             console.error('Google sign up error:', error);
-            Alert.alert('Error', 'An unexpected error occurred');
+            showModal('error', 'Error', 'An unexpected error occurred');
         } finally {
             setLoading(false);
             setLoadingStatus('');
@@ -454,6 +470,18 @@ const SignUpScreen = () => {
                 onGallery={pickImage}
                 title="Choose Profile Photo"
                 subtitle="Select where to get your profile photo from"
+            />
+
+            {/* Success/Error Modal */}
+            <SuccessModal
+                visible={modalVisible}
+                title={modalTitle}
+                message={modalMessage}
+                onClose={handleModalClose}
+                icon={modalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={modalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={modalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                buttonText={modalType === 'success' ? 'Great!' : 'Try Again'}
             />
         </SafeAreaView>
     );

@@ -7,13 +7,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 
 import Header from '../../../components/partials/Header';
 import { uploadImageToFirebase } from '~/utils/uploadImage';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useAuth } from '~/context/AuthContext';
 import { Picker } from '@react-native-picker/picker';
 import { addRecipeToDay, loadMealPlanWithDetails } from '~/controller/planner';
 import colors from '~/utils/color';
 import ImagePickerModal from '~/components/modal/ImagePickerModal';
+import SuccessModal from '~/components/modal/SuccessModal';
 
 
 
@@ -21,7 +22,6 @@ interface Ingredient {
     name: string;
     amount: string;
     unit: string;
-    notes: string;
 }
 
 interface Step {
@@ -46,7 +46,7 @@ export default function AddRecipeScreen() {
     const [cookTime, setCookTime] = useState<string>('');
     const [totalTime, setTotalTime] = useState<string>('');
     const [difficulty, setDifficulty] = useState<string>('Medium');
-    const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: '', notes: '' }]);
+    const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: '' }]);
     const [steps, setSteps] = useState<Step[]>([{ title: '', details: '', time: '' }]);
     const [tips, setTips] = useState('');
     const [serving, setServing] = useState('');
@@ -58,6 +58,26 @@ export default function AddRecipeScreen() {
     const [selectedIngredientIndex, setSelectedIngredientIndex] = useState(0);
     const [isPrivate, setIsPrivate] = useState(false);
     const [showImagePicker, setShowImagePicker] = useState(false);
+
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'success' | 'error'>('success');
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalMessage, setModalMessage] = useState('');
+
+    const showModal = (type: 'success' | 'error', title: string, message: string) => {
+        setModalType(type);
+        setModalTitle(title);
+        setModalMessage(message);
+        setModalVisible(true);
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+        if (modalType === 'success') {
+            navigation.goBack();
+        }
+    };
 
     const { viewMode, selectedDayIndex, weekOffset } = (route.params as any) || { viewMode: 'search' };
     const userId = user?.uid;
@@ -106,7 +126,7 @@ export default function AddRecipeScreen() {
             // Request permission
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Gallery permission is required');
+                showModal('error', 'Permission needed', 'Gallery permission is required');
                 return;
             }
 
@@ -125,7 +145,7 @@ export default function AddRecipeScreen() {
             }
         } catch (error: any) {
             console.error('❌ Gallery error:', error);
-            Alert.alert('Gallery Error', 'Failed to open gallery: ' + (error.message || 'Unknown error'));
+            showModal('error', 'Gallery Error', 'Failed to open gallery: ' + (error.message || 'Unknown error'));
         }
     };
 
@@ -136,7 +156,7 @@ export default function AddRecipeScreen() {
 
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Camera permission is required');
+                showModal('error', 'Permission needed', 'Camera permission is required');
                 return;
             }
 
@@ -154,13 +174,13 @@ export default function AddRecipeScreen() {
             }
         } catch (error: any) {
             console.error('❌ Camera error:', error);
-            Alert.alert('Camera Error', 'Failed to open camera: ' + (error.message || 'Unknown error'));
+            showModal('error', 'Camera Error', 'Failed to open camera: ' + (error.message || 'Unknown error'));
         }
     };
 
 
     // Add new ingredient
-    const addIngredient = () => setIngredients([...ingredients, { name: '', amount: '', unit: '', notes: '' }]);
+    const addIngredient = () => setIngredients([...ingredients, { name: '', amount: '', unit: '' }]);
 
     // Add new step
     const addStep = () => setSteps([...steps, { title: '', details: '', time: '' }]);
@@ -186,7 +206,7 @@ export default function AddRecipeScreen() {
 
         try {
             if (!title || !intro || !ingredients || !steps) {
-                Alert.alert("Missing Fields", "Please fill in all required fields (Title, Intro, Ingredients, Steps).");
+                showModal('error', 'Missing Fields', 'Please fill in all required fields (Title, Intro, Ingredients, Steps).');
                 setIsLoading(false);
                 return;
             }
@@ -247,18 +267,7 @@ export default function AddRecipeScreen() {
                     );
 
                     if (isDuplicate) {
-                        Alert.alert(
-                            'Duplicate Recipe',
-                            'This recipe is already in your meal plan for this day. Please choose a different recipe or day.',
-                            [
-                                {
-                                    text: 'OK',
-                                    onPress: () => {
-                                        setIsLoading(false);
-                                    }
-                                }
-                            ]
-                        );
+                        showModal('error', 'Duplicate Recipe', 'This recipe is already in your meal plan for this day. Please choose a different recipe or day.');
                         return; // Exit early, don't add the recipe
                     }
 
@@ -270,22 +279,12 @@ export default function AddRecipeScreen() {
                         plannerRecipe
                     );
                 }
-                Alert.alert('Success', "Recipe added successfully!", [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack(),
-                    }
-                ]);
+                showModal('success', 'Success', 'Recipe added successfully!');
             } else {
-                Alert.alert('Success', "Recipe added successfully!", [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack(),
-                    }
-                ]);
+                showModal('success', 'Success', 'Recipe added successfully!');
             }
         } catch (error) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
+            showModal('error', 'Error', error instanceof Error ? error.message : 'An unknown error occurred');
         } finally {
             setIsLoading(false);
         }
@@ -419,11 +418,23 @@ export default function AddRecipeScreen() {
                             <View className="flex-row">
                                 <View className="flex-1">
                                     <Text className="text-gray-700 mb-1">Prep Time</Text>
-                                    <TextInput className="border border-gray-200 rounded-lg px-3 py-2 bg-white" placeholder="Prep Time" value={prepTime} onChangeText={setPrepTime} />
+                                    <TextInput
+                                        className="border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                                        placeholder="Prep Time"
+                                        value={prepTime}
+                                        onChangeText={setPrepTime}
+                                        keyboardType="numeric"
+                                    />
                                 </View>
                                 <View className="flex-1">
                                     <Text className="text-gray-700 mb-1">Cook Time</Text>
-                                    <TextInput className="border border-gray-200 rounded-lg px-3 py-2 bg-white" placeholder="Cook Time" value={cookTime} onChangeText={setCookTime} />
+                                    <TextInput
+                                        className="border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                                        placeholder="Cook Time"
+                                        value={cookTime}
+                                        onChangeText={setCookTime}
+                                        keyboardType="numeric"
+                                    />
                                 </View>
                                 <View className="flex-1">
                                     <Text className="text-gray-700 mb-1">Total Time</Text>
@@ -455,7 +466,13 @@ export default function AddRecipeScreen() {
                         {ingredients.map((ing, idx) => (
                             <View key={idx} className="flex-row space-x-2 mb-2">
                                 <TextInput className="border border-gray-200 rounded-lg px-2 py-1 flex-1 bg-white" placeholder="Name" value={ing.name} onChangeText={(v) => handleIngredientChange(idx, 'name', v)} />
-                                <TextInput className="border border-gray-200 rounded-lg px-2 py-1 w-14 bg-white" placeholder="Amt" value={ing.amount} onChangeText={(v) => handleIngredientChange(idx, 'amount', v)} />
+                                <TextInput
+                                    className="border border-gray-200 rounded-lg px-2 py-1 w-14 bg-white"
+                                    placeholder="Amt"
+                                    value={ing.amount}
+                                    onChangeText={(v) => handleIngredientChange(idx, 'amount', v)}
+                                    keyboardType="numeric"
+                                />
                                 <TouchableOpacity
                                     className="bg-orange-50 border-2 border-orange-200 rounded-xl px-2 py-2 w-24 justify-center items-center"
                                     onPress={() => {
@@ -471,7 +488,6 @@ export default function AddRecipeScreen() {
                                         <Ionicons name="chevron-down" size={12} color="#EA580C" />
                                     </View>
                                 </TouchableOpacity>
-                                <TextInput className="border border-gray-200 rounded-lg px-2 py-1 flex-1 bg-white" placeholder="Notes" value={ing.notes} onChangeText={(v) => handleIngredientChange(idx, 'notes', v)} />
                             </View>
                         ))}
                         <TouchableOpacity className="mb-4" onPress={addIngredient}>
@@ -665,6 +681,18 @@ export default function AddRecipeScreen() {
                 title="Choose Recipe Photo"
                 subtitle="Select where to get your recipe photo from"
             />
-        </KeyboardAvoidingView >
+
+            {/* Success/Error Modal */}
+            <SuccessModal
+                visible={modalVisible}
+                title={modalTitle}
+                message={modalMessage}
+                onClose={handleModalClose}
+                icon={modalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={modalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={modalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                buttonText={modalType === 'success' ? 'Great!' : 'Try Again'}
+            />
+        </KeyboardAvoidingView>
     );
 }

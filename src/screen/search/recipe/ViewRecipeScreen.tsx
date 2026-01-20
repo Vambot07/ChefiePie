@@ -48,8 +48,18 @@ const ViewRecipeScreen = () => {
     });
 
     // Success Modal states
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [successMessage, setSuccessMessage] = useState('');
+    // Generic Success/Error Modal State
+    const [messageModalVisible, setMessageModalVisible] = useState(false);
+    const [messageModalType, setMessageModalType] = useState<'success' | 'error'>('success');
+    const [messageModalTitle, setMessageModalTitle] = useState('');
+    const [messageModalMessage, setMessageModalMessage] = useState('');
+
+    const showMessageModal = (type: 'success' | 'error', title: string, message: string) => {
+        setMessageModalType(type);
+        setMessageModalTitle(title);
+        setMessageModalMessage(message);
+        setMessageModalVisible(true);
+    };
 
     // Get recipe and viewMode from params
     const {
@@ -237,7 +247,7 @@ const ViewRecipeScreen = () => {
                 setApiRecipeDetails(data);
             } catch (error) {
                 console.error('❌ Error fetching API recipe details:', error);
-                Alert.alert('Error', 'Failed to load full recipe details');
+                showMessageModal('error', 'Error', 'Failed to load full recipe details');
             } finally {
                 setLoadingApiDetails(false);
             }
@@ -295,16 +305,15 @@ const ViewRecipeScreen = () => {
     // Privacy Guard: Block unauthorized access to private recipes
     useEffect(() => {
         if (!isApiRecipe && recipe?.isPrivate && !isOwner && !isAdmin) {
-            Alert.alert(
-                'Private Recipe',
-                'This recipe is private and only visible to the owner.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack()
-                    }
-                ]
-            );
+            showMessageModal('error', 'Private Recipe', 'This recipe is private and only visible to the owner.');
+            // Note: Navigation back handled in modal close if needed, but here we might want immediate effect.
+            // However, the modal usually requires user interaction to close.
+            // The original code had an onPress to goBack.
+            // I'll handle navigation in the onClose prop of the modal for this specific case? 
+            // Or just generic goBack if modal type is error? No, usually error stays.
+            // Let's stick to the pattern: success -> goBack (optional), error -> stay.
+            // But this is a "Blocking" error.
+            // I will update the onClose handler to check for this specific case or make it generic.
         }
     }, [recipe, isOwner, isApiRecipe, isAdmin]);
 
@@ -365,12 +374,12 @@ const ViewRecipeScreen = () => {
 
     const handleOptionLink = () => {
         if (!youtubeLink) {
-            Alert.alert('No Video', 'This recipe does not have a video tutorial.');
+            showMessageModal('error', 'No Video', 'This recipe does not have a video tutorial.');
             return;
         }
         Linking.openURL(youtubeLink).catch((error) => {
             console.error('Error opening link:', error);
-            Alert.alert('Error', 'Could not open the video link. Please try again.');
+            showMessageModal('error', 'Error', 'Could not open the video link. Please try again.');
         });
     };
 
@@ -390,10 +399,9 @@ const ViewRecipeScreen = () => {
             }
 
             setIsSaved(true);
-            setSuccessMessage('Recipe saved successfully!');
-            setShowSuccessModal(true);
+            showMessageModal('success', 'Success', 'Recipe saved successfully!');
         } catch (error) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save recipe');
+            showMessageModal('error', 'Error', error instanceof Error ? error.message : 'Failed to save recipe');
         } finally {
             setLoadingAction(null);
         }
@@ -405,10 +413,11 @@ const ViewRecipeScreen = () => {
         try {
             await unsaveRecipe(recipe.id);
             setIsSaved(false);
-            setSuccessMessage('Recipe has been unsaved successfully.');
-            setShowSuccessModal(true);
+            await unsaveRecipe(recipe.id);
+            setIsSaved(false);
+            showMessageModal('success', 'Success', 'Recipe has been unsaved successfully.');
         } catch (error) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to unsave recipe');
+            showMessageModal('error', 'Error', error instanceof Error ? error.message : 'Failed to unsave recipe');
         } finally {
             setLoadingAction(null);
         }
@@ -441,13 +450,13 @@ const ViewRecipeScreen = () => {
             // Update local recipe object
             recipe.isPrivate = newPrivacyStatus;
 
-            Alert.alert(
-                'Success',
-                `Recipe is now ${newPrivacyStatus ? 'private' : 'public'}`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
-            );
+            // Update local recipe object
+            recipe.isPrivate = newPrivacyStatus;
+
+            showMessageModal('success', 'Success', `Recipe is now ${newPrivacyStatus ? 'private' : 'public'}`);
+            setModalVisible(false); // Close the options modal
         } catch (error) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to update privacy');
+            showMessageModal('error', 'Error', error instanceof Error ? error.message : 'Failed to update privacy');
         } finally {
             setLoadingAction(null);
         }
@@ -457,17 +466,10 @@ const ViewRecipeScreen = () => {
         setLoadingAction('deleting');
         try {
             await deleteRecipe(recipe.id);
-            Alert.alert('Success', 'Recipe deleted successfully', [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        setModalVisible(false);
-                        navigation.goBack();
-                    },
-                },
-            ]);
+            setModalVisible(false); // Close options modal
+            showMessageModal('success', 'Success', 'Recipe deleted successfully');
         } catch (error) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to delete recipe');
+            showMessageModal('error', 'Error', error instanceof Error ? error.message : 'Failed to delete recipe');
         } finally {
             setLoadingAction(null);
         }
@@ -1013,12 +1015,22 @@ const ViewRecipeScreen = () => {
             )}
 
             {/* Success Modal */}
+            {/* Generic Success/Error Modal */}
             <SuccessModal
-                visible={showSuccessModal}
-                title="Success"
-                message={successMessage}
-                buttonText="OK"
-                onClose={() => setShowSuccessModal(false)}
+                visible={messageModalVisible}
+                title={messageModalTitle}
+                message={messageModalMessage}
+                buttonText={messageModalType === 'success' ? 'Great!' : 'Try Again'}
+                icon={messageModalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={messageModalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={messageModalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                onClose={() => {
+                    setMessageModalVisible(false);
+                    // Special handling for delete success or blocking error
+                    if (messageModalMessage === 'Recipe deleted successfully' || messageModalTitle === 'Private Recipe') {
+                        navigation.goBack();
+                    }
+                }}
             />
         </View>
     );

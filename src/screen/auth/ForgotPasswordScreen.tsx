@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '~/context/AuthContext';
+import SuccessModal from '~/components/modal/SuccessModal';
 
 
 const ForgotPasswordScreen = () => {
@@ -10,16 +11,36 @@ const ForgotPasswordScreen = () => {
     const [email, setEmail] = useState('');
     const { resetPassword } = useAuth();
 
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'success' | 'error'>('success');
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalMessage, setModalMessage] = useState('');
+
+    const showModal = (type: 'success' | 'error', title: string, message: string) => {
+        setModalType(type);
+        setModalTitle(title);
+        setModalMessage(message);
+        setModalVisible(true);
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+        if (modalType === 'success') {
+            navigation.goBack();
+        }
+    };
+
     const handleResetPassword = async () => {
         // TODO: Implement password reset logic
         if (!email.trim()) {
-            alert('Please enter your email address');
+            showModal('error', 'Error', 'Please enter your email address');
             return;
-
         }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            alert('Please enter a valid email address');
+            showModal('error', 'Error', 'Please enter a valid email address');
             return;
         }
 
@@ -27,10 +48,9 @@ const ForgotPasswordScreen = () => {
 
         const result = await resetPassword(email);
         if (result.success) {
-            Alert.alert('Success', result.msg);
-            navigation.goBack();
+            showModal('success', 'Success', result.msg || 'Reset link sent');
         } else {
-            Alert.alert('Error', result.msg);
+            showModal('error', 'Error', result.msg || 'Failed to send reset link');
         }
     };
 
@@ -74,6 +94,18 @@ const ForgotPasswordScreen = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* Success/Error Modal */}
+            <SuccessModal
+                visible={modalVisible}
+                title={modalTitle}
+                message={modalMessage}
+                onClose={handleModalClose}
+                icon={modalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={modalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={modalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                buttonText={modalType === 'success' ? 'Back to Sign In' : 'Try Again'}
+            />
         </SafeAreaView>
     );
 };
@@ -143,4 +175,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default ForgotPasswordScreen; 
+export default ForgotPasswordScreen;

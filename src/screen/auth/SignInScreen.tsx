@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '~/context/AuthContext';
 import { Ionicons, AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { signInWithGoogle } from '~/utils/socialAuth';
+import SuccessModal from '~/components/modal/SuccessModal';
 
 const SignInScreen = () => {
     const navigation = useNavigation<any>();
@@ -14,16 +15,36 @@ const SignInScreen = () => {
     const [showPassword, setShowPassword] = useState(false);
     const { signin } = useAuth();
 
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'success' | 'error'>('success');
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalMessage, setModalMessage] = useState('');
+
+    const showModal = (type: 'success' | 'error', title: string, message: string) => {
+        setModalType(type);
+        setModalTitle(title);
+        setModalMessage(message);
+        setModalVisible(true);
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+        // If it was a success message, we might want to navigate or just stay (auth context handles nav usually)
+    };
+
     const handleSignIn = async () => {
         // Check if both fields are empty
+        // Check if both fields are empty
         if (!email && !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showModal('error', 'Error', 'Please fill in all fields');
             return;
         }
 
         // Check if only one field is filled
+        // Check if only one field is filled
         if (!email || !password) {
-            Alert.alert('Error', 'Invalid credentials');
+            showModal('error', 'Error', 'Invalid credentials');
             return;
         }
 
@@ -33,10 +54,8 @@ const SignInScreen = () => {
 
         console.log('SignIn response:', response);
 
-        if (response.success) {
-            Alert.alert('Sign In Success', response.msg);
-        } else {
-            Alert.alert('Sign In Failed', response.msg);
+        if (!response.success) {
+            showModal('error', 'Sign In Failed', response.msg || 'Unknown error occurred');
         }
     };
 
@@ -45,14 +64,12 @@ const SignInScreen = () => {
             setLoading(true);
             const result = await signInWithGoogle();
 
-            if (result.success) {
-                Alert.alert('Success!', result.msg);
-            } else {
-                Alert.alert('Sign In Failed', result.msg);
+            if (!result.success) {
+                showModal('error', 'Sign In Failed', result.msg || 'Unknown error occurred');
             }
         } catch (error) {
             console.error('Google sign in error:', error);
-            Alert.alert('Error', 'An unexpected error occurred');
+            showModal('error', 'Error', 'An unexpected error occurred');
         } finally {
             setLoading(false);
         }
@@ -215,6 +232,18 @@ const SignInScreen = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Success/Error Modal */}
+            <SuccessModal
+                visible={modalVisible}
+                title={modalTitle}
+                message={modalMessage}
+                onClose={handleModalClose}
+                icon={modalType === 'success' ? 'checkmark-circle' : 'alert-circle'}
+                iconColor={modalType === 'success' ? '#22C55E' : '#EF4444'}
+                iconBgColor={modalType === 'success' ? '#DCFCE7' : '#FEE2E2'}
+                buttonText={modalType === 'success' ? 'Great!' : 'Try Again'}
+            />
         </SafeAreaView>
     );
 };
