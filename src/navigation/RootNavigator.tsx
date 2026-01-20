@@ -1,14 +1,17 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '~/context/AuthContext';
+import { useNetwork } from '~/context/NetworkContext';
 import AuthStack from './AuthStack';
 import AppStack from './AppStack';
 import LoadingScreen from '~/screen/auth/LoadingScreen';
+import NoInternetScreen from '~/screen/NoInternetScreen';
 import { useFonts, RobotoSlab_400Regular, RobotoSlab_800ExtraBold } from '@expo-google-fonts/roboto-slab';
 import { Oswald_400Regular } from '@expo-google-fonts/oswald';
 import { ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
 
 const RootNavigator = () => {
     const { isAuthenticated, loading } = useAuth();
+    const { isConnected, isInternetReachable } = useNetwork();
 
     // Load all fonts globally to prevent FOUT (Flash of Unstyled Text)
     const [fontsLoaded] = useFonts({
@@ -23,6 +26,11 @@ const RootNavigator = () => {
     // Show loading screen while checking auth or loading fonts
     if (loading || !fontsLoaded) {
         return <LoadingScreen />
+    }
+
+    // Show no internet screen if not connected
+    if (!isConnected || !isInternetReachable) {
+        return <NoInternetScreen />
     }
 
     return (

@@ -16,10 +16,10 @@ import { Audio } from 'expo-av';
 import colors from '~/utils/color';
 import ConfirmationModal from '~/components/modal/ConfirmationModal';
 import SuccessModal from '~/components/modal/SuccessModal';
+import { getVoiceResponse } from '../../../api/gemini/recognitionService';
 
 // Create enhanced ScrollView with scroll-into-view functionality
 const EnhancedScrollView = wrapScrollView(ScrollView);
-import { getVoiceResponse } from '../../../api/gemini/recognitionService';
 
 const ViewSavedRecipeScreen = () => {
     const route = useRoute();
@@ -381,7 +381,7 @@ const ViewSavedRecipeScreen = () => {
         // Handle actual errors that require user attention
         switch (event.error) {
             case 'network':
-                Alert.alert('Network Error', 'Please check your internet connection');
+                console.log('Network Error,  Please check your internet connection');
                 break;
             case 'not-allowed':
                 Alert.alert('Permission Denied', 'Microphone access is required for voice commands');
@@ -1932,168 +1932,168 @@ const ViewSavedRecipeScreen = () => {
                                 showsVerticalScrollIndicator={false}
                                 style={{ flexGrow: 1 }}
                                 contentContainerStyle={{ paddingBottom: 8 }}
-    >
-                            {/* Status Card - Clean and Simple */}
-                            <View className={`rounded-xl p-3 mb-3`}
-                                style={{
-                                    backgroundColor: isProcessingAI ? '#F3E8FF' : isSpeaking ? '#DBEAFE' : isListening ? '#D1FAE5' : '#F3F4F6',
-                                }}>
-                                {/* Status Header */}
-                                <View className="flex-row items-center mb-2">
-                                    <View className="w-2 h-2 rounded-full mr-2"
-                                        style={{
-                                            backgroundColor: isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : isListening ? '#10B981' : '#6B7280',
-                                        }} />
-                                    <Text className="font-bold text-sm"
-                                        style={{
-                                            color: isProcessingAI ? '#7C3AED' : isSpeaking ? '#2563EB' : isListening ? '#059669' : '#374151',
-                                        }}>
-                                        {isProcessingAI ? '🤖 AI Processing' :
-                                         isSpeaking ? '🔊 Speaking' :
-                                         isListening ? '👂 Listening' :
-                                         wakeWordListening ? '💬 Say "Ready"' :
-                                         voiceMode ? '✨ Voice Active' : '🎤 Ready to Start'}
-                                    </Text>
-                                </View>
-
-                                {/* What User Said - Large and Clear */}
-                                {recognizedText && (
-                                    <View className="bg-white rounded-lg px-3 py-2 mb-1" style={{
-                                        borderLeftWidth: 3,
-                                        borderLeftColor: '#10B981',
+                            >
+                                {/* Status Card - Clean and Simple */}
+                                <View className={`rounded-xl p-3 mb-3`}
+                                    style={{
+                                        backgroundColor: isProcessingAI ? '#F3E8FF' : isSpeaking ? '#DBEAFE' : isListening ? '#D1FAE5' : '#F3F4F6',
                                     }}>
-                                        <Text className="text-xs text-gray-500 mb-0.5 font-semibold">You said:</Text>
-                                        <Text className="text-gray-900 text-sm font-medium">
-                                            "{recognizedText}"
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {/* What App is Saying */}
-                                {assistantText && (
-                                    <View className="bg-white rounded-lg px-3 py-2 mb-1" style={{
-                                        borderLeftWidth: 3,
-                                        borderLeftColor: '#3B82F6',
-                                    }}>
-                                        <Text className="text-xs text-gray-500 mb-0.5 font-semibold">Assistant:</Text>
-                                        <Text
-                                            className="text-gray-900 text-sm leading-5"
-                                            style={{ flexWrap: 'wrap' }}
-                                            numberOfLines={0}
-                                        >
-                                            {assistantText}
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {/* Hints when listening and no text yet */}
-                                {!recognizedText && !assistantText && isListening && (
-                                    <View className="bg-white/50 rounded-lg px-2 py-1.5">
-                                        <Text className="text-xs text-center text-gray-600">
-                                            💡 Try: "next", "repeat", "timer"
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Timer Display */}
-                            {timerActive && (
-                                <View className="bg-blue-50 rounded-xl px-3 py-2 mb-2">
-                                    <Text className="text-center font-bold text-blue-700 text-sm">
-                                        ⏱ Timer: {timerMinutes} {timerMinutes === 1 ? 'min' : 'mins'}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {/* Action Buttons */}
-                            {voiceMode ? (
-                                <>
-                                    <View className="flex-row mb-2">
-                                        <TouchableOpacity
-                                            onPress={isPaused ? resumeVoiceAssistant : pauseVoiceAssistant}
-                                            className="flex-1 py-3 rounded-xl mr-1.5"
+                                    {/* Status Header */}
+                                    <View className="flex-row items-center mb-2">
+                                        <View className="w-2 h-2 rounded-full mr-2"
                                             style={{
-                                                backgroundColor: isPaused ? '#10B981' : '#F59E0B',
-                                            }}
+                                                backgroundColor: isProcessingAI ? '#A855F7' : isSpeaking ? '#3B82F6' : isListening ? '#10B981' : '#6B7280',
+                                            }} />
+                                        <Text className="font-bold text-sm"
+                                            style={{
+                                                color: isProcessingAI ? '#7C3AED' : isSpeaking ? '#2563EB' : isListening ? '#059669' : '#374151',
+                                            }}>
+                                            {isProcessingAI ? '🤖 AI Processing' :
+                                                isSpeaking ? '🔊 Speaking' :
+                                                    isListening ? '👂 Listening' :
+                                                        wakeWordListening ? '💬 Say "Ready"' :
+                                                            voiceMode ? '✨ Voice Active' : '🎤 Ready to Start'}
+                                        </Text>
+                                    </View>
+
+                                    {/* What User Said - Large and Clear */}
+                                    {recognizedText && (
+                                        <View className="bg-white rounded-lg px-3 py-2 mb-1" style={{
+                                            borderLeftWidth: 3,
+                                            borderLeftColor: '#10B981',
+                                        }}>
+                                            <Text className="text-xs text-gray-500 mb-0.5 font-semibold">You said:</Text>
+                                            <Text className="text-gray-900 text-sm font-medium">
+                                                "{recognizedText}"
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    {/* What App is Saying */}
+                                    {assistantText && (
+                                        <View className="bg-white rounded-lg px-3 py-2 mb-1" style={{
+                                            borderLeftWidth: 3,
+                                            borderLeftColor: '#3B82F6',
+                                        }}>
+                                            <Text className="text-xs text-gray-500 mb-0.5 font-semibold">Assistant:</Text>
+                                            <Text
+                                                className="text-gray-900 text-sm leading-5"
+                                                style={{ flexWrap: 'wrap' }}
+                                                numberOfLines={0}
+                                            >
+                                                {assistantText}
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    {/* Hints when listening and no text yet */}
+                                    {!recognizedText && !assistantText && isListening && (
+                                        <View className="bg-white/50 rounded-lg px-2 py-1.5">
+                                            <Text className="text-xs text-center text-gray-600">
+                                                💡 Try: "next", "repeat", "timer"
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Timer Display */}
+                                {timerActive && (
+                                    <View className="bg-blue-50 rounded-xl px-3 py-2 mb-2">
+                                        <Text className="text-center font-bold text-blue-700 text-sm">
+                                            ⏱ Timer: {timerMinutes} {timerMinutes === 1 ? 'min' : 'mins'}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Action Buttons */}
+                                {voiceMode ? (
+                                    <>
+                                        <View className="flex-row mb-2">
+                                            <TouchableOpacity
+                                                onPress={isPaused ? resumeVoiceAssistant : pauseVoiceAssistant}
+                                                className="flex-1 py-3 rounded-xl mr-1.5"
+                                                style={{
+                                                    backgroundColor: isPaused ? '#10B981' : '#F59E0B',
+                                                }}
+                                            >
+                                                <Text className="text-white font-bold text-center text-sm">
+                                                    {isPaused ? '▶ Resume' : '⏸ Pause'}
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                onPress={manualInterrupt}
+                                                className="flex-1 py-3 rounded-xl ml-1.5"
+                                                style={{
+                                                    backgroundColor: isSpeaking ? '#EF4444' : '#D1D5DB',
+                                                }}
+                                                disabled={!isSpeaking}
+                                            >
+                                                <Text className={`font-bold text-center text-sm ${isSpeaking ? 'text-white' : 'text-gray-400'}`}>
+                                                    ⏹ Stop
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Speech Speed */}
+                                        <View className="bg-gray-50 rounded-xl p-2 mb-2">
+                                            <Text className="text-xs text-gray-600 font-semibold mb-1.5 text-center">Speech Speed</Text>
+                                            <View className="flex-row justify-around">
+                                                {[
+                                                    { rate: 0.5, label: 'Slow', icon: '🐢' },
+                                                    { rate: 0.75, label: 'Normal', icon: '👤' },
+                                                    { rate: 1.0, label: 'Fast', icon: '🚀' }
+                                                ].map((option) => (
+                                                    <TouchableOpacity
+                                                        key={option.rate}
+                                                        onPress={() => setSpeechRate(option.rate)}
+                                                        className={`px-3 py-2 rounded-lg ${speechRate === option.rate ? 'bg-primary' : 'bg-white'}`}
+                                                        style={{
+                                                            borderWidth: 1.5,
+                                                            borderColor: speechRate === option.rate ? '#FF914D' : '#E5E7EB',
+                                                        }}
+                                                        disabled={isSpeaking}
+                                                    >
+                                                        <Text className="text-center text-base mb-0.5">{option.icon}</Text>
+                                                        <Text className={`text-xs font-bold ${speechRate === option.rate ? 'text-white' : 'text-gray-600'}`}>
+                                                            {option.label}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </View>
+
+                                        <TouchableOpacity
+                                            onPress={stopVoiceAssistant}
+                                            className="bg-red-500 py-3 rounded-xl"
                                         >
                                             <Text className="text-white font-bold text-center text-sm">
-                                                {isPaused ? '▶ Resume' : '⏸ Pause'}
+                                                End Session
                                             </Text>
                                         </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    <>
+                                        <View className="bg-blue-50 rounded-xl p-3 mb-2">
+                                            <Text className="font-bold text-blue-800 mb-1.5 text-sm">Quick Guide:</Text>
+                                            <Text className="text-blue-700 text-xs leading-5">
+                                                • Say <Text className="font-bold">"Ready"</Text> to start{'\n'}
+                                                • Commands: "next", "repeat", "pause"{'\n'}
+                                                • Ask questions about the recipe{'\n'}
+                                                • Timers: "set timer for X minutes"
+                                            </Text>
+                                        </View>
 
                                         <TouchableOpacity
-                                            onPress={manualInterrupt}
-                                            className="flex-1 py-3 rounded-xl ml-1.5"
-                                            style={{
-                                                backgroundColor: isSpeaking ? '#EF4444' : '#D1D5DB',
-                                            }}
-                                            disabled={!isSpeaking}
+                                            onPress={startActivationFlow}
+                                            className="bg-primary py-3 rounded-xl"
                                         >
-                                            <Text className={`font-bold text-center text-sm ${isSpeaking ? 'text-white' : 'text-gray-400'}`}>
-                                                ⏹ Stop
+                                            <Text className="text-white font-bold text-center text-sm">
+                                                🎤 Start Voice Assistant
                                             </Text>
                                         </TouchableOpacity>
-                                    </View>
-
-                                    {/* Speech Speed */}
-                                    <View className="bg-gray-50 rounded-xl p-2 mb-2">
-                                        <Text className="text-xs text-gray-600 font-semibold mb-1.5 text-center">Speech Speed</Text>
-                                        <View className="flex-row justify-around">
-                                            {[
-                                                { rate: 0.5, label: 'Slow', icon: '🐢' },
-                                                { rate: 0.75, label: 'Normal', icon: '👤' },
-                                                { rate: 1.0, label: 'Fast', icon: '🚀' }
-                                            ].map((option) => (
-                                                <TouchableOpacity
-                                                    key={option.rate}
-                                                    onPress={() => setSpeechRate(option.rate)}
-                                                    className={`px-3 py-2 rounded-lg ${speechRate === option.rate ? 'bg-primary' : 'bg-white'}`}
-                                                    style={{
-                                                        borderWidth: 1.5,
-                                                        borderColor: speechRate === option.rate ? '#FF914D' : '#E5E7EB',
-                                                    }}
-                                                    disabled={isSpeaking}
-                                                >
-                                                    <Text className="text-center text-base mb-0.5">{option.icon}</Text>
-                                                    <Text className={`text-xs font-bold ${speechRate === option.rate ? 'text-white' : 'text-gray-600'}`}>
-                                                        {option.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        onPress={stopVoiceAssistant}
-                                        className="bg-red-500 py-3 rounded-xl"
-                                    >
-                                        <Text className="text-white font-bold text-center text-sm">
-                                            End Session
-                                        </Text>
-                                    </TouchableOpacity>
-                                </>
-                            ) : (
-                                <>
-                                    <View className="bg-blue-50 rounded-xl p-3 mb-2">
-                                        <Text className="font-bold text-blue-800 mb-1.5 text-sm">Quick Guide:</Text>
-                                        <Text className="text-blue-700 text-xs leading-5">
-                                            • Say <Text className="font-bold">"Ready"</Text> to start{'\n'}
-                                            • Commands: "next", "repeat", "pause"{'\n'}
-                                            • Ask questions about the recipe{'\n'}
-                                            • Timers: "set timer for X minutes"
-                                        </Text>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        onPress={startActivationFlow}
-                                        className="bg-primary py-3 rounded-xl"
-                                    >
-                                        <Text className="text-white font-bold text-center text-sm">
-                                            🎤 Start Voice Assistant
-                                        </Text>
-                                    </TouchableOpacity>
-                                </>
-                            )}
+                                    </>
+                                )}
                             </ScrollView>
                         </Pressable>
                     </Pressable>
