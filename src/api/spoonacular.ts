@@ -59,22 +59,93 @@ const categoryToCuisine: Record<string, string> = {
 };
 
 // Fetch recipes (random or by cuisine)
-export const fetchRecipesByCategory = async (cuisine: string = 'All', number: number = 10) => {
+export const fetchRecipesByCategory = async (
+  cuisine: string = 'All',
+  number: number = 10,
+  filters?: {
+    diet?: string[];
+    excludeIngredients?: string[];
+  }
+) => {
   try {
     let url = '';
+
+    // Always exclude haram ingredients + merge with user-provided exclusions
+    const allExcludedIngredients = [
+      ...HARAM_INGREDIENTS,
+      ...(filters?.excludeIngredients || []),
+    ];
+
     let params: any = {
       apiKey: API_KEY,
       number,
-      excludeIngredients: HARAM_INGREDIENTS.join(','), // Always exclude haram ingredients
+      excludeIngredients: allExcludedIngredients.join(','), // Always exclude haram ingredients
     };
+
+    // Add diet and intolerance filters
+    if (filters?.diet && filters.diet.length > 0) {
+
+      const knownDiets = ['vegetarian', 'vegan', 'pescatarian', 'paleo', 'primal', 'ketogenic', 'whole30'];
+      const knownIntolerances = ['gluten', 'dairy', 'egg', 'soy', 'peanut', 'tree nut', 'seafood', 'shellfish', 'wheat', 'sesame', 'sulfite'];
+
+      const activeDiets: string[] = [];
+      const activeIntolerances: string[] = [];
+
+      filters.diet.forEach(d => {
+        const lower = d.toLowerCase();
+
+        if (lower === 'keto') {
+          activeDiets.push('ketogenic');
+        } else if (lower.includes('fish') && !lower.includes('shellfish')) {
+          activeIntolerances.push('seafood');
+        } else if (knownDiets.includes(lower)) {
+          activeDiets.push(lower);
+        } else if (knownIntolerances.includes(lower)) {
+          activeIntolerances.push(lower);
+        } else {
+          if (lower.includes('gluten')) activeIntolerances.push('gluten');
+          else if (lower.includes('dairy')) activeIntolerances.push('dairy');
+          else if (lower.includes('egg')) activeIntolerances.push('egg');
+          else if (lower.includes('soy')) activeIntolerances.push('soy');
+          else if (lower.includes('peanut')) activeIntolerances.push('peanut');
+          else if (lower.includes('tree nut') || lower.includes('treenut')) activeIntolerances.push('tree nut');
+          else if (lower.includes('shellfish')) activeIntolerances.push('shellfish');
+          else if (lower.includes('wheat')) activeIntolerances.push('wheat');
+        }
+      });
+
+      if (activeDiets.length > 0) {
+        const dietString = activeDiets.join(',');
+        params.tags = dietString; // For random
+        params.diet = dietString; // For complexSearch
+      }
+
+      if (activeIntolerances.length > 0) {
+        params.intolerances = activeIntolerances.join(',');
+      }
+    }
 
     const mappedCuisine = categoryToCuisine[cuisine] || cuisine;
 
     if (mappedCuisine === 'All') {
-      // Random recipes directly
-      url = `${BASE_URL}/recipes/random`;
+      // Use complexSearch with sort=random instead of random endpoint to support excludeIngredients
+      url = `${BASE_URL}/recipes/complexSearch`;
+      params = {
+        ...params,
+        sort: 'random',
+        addRecipeInformation: true,
+      };
+
+      if (params.tags && !params.diet) {
+        params.diet = params.tags; // complexSearch uses 'diet', random used 'tags'
+        delete params.tags;
+      }
+
+      // params.excludeIngredients is already set above correctly
+
+      console.log('🔍 params for random (via complexSearch):', JSON.stringify(params));
       const response = await axios.get(url, { params });
-      return response.data;
+      return { results: response.data.results || [] }; // normalize to object with results
     } else {
       // Fetch filtered recipes first
       url = `${BASE_URL}/recipes/complexSearch`;
@@ -82,6 +153,13 @@ export const fetchRecipesByCategory = async (cuisine: string = 'All', number: nu
       params.addRecipeInformation = true;
       params.number = 50; // Fetch more to shuffle from
 
+      // For complexSearch, 'tags' is not used for diet, 'diet' parameter is used
+      if (params.tags && !params.diet) {
+        params.diet = params.tags;
+        delete params.tags;
+      }
+
+      console.log('🔍 params for complexSearch:', JSON.stringify(params));
       const response = await axios.get(url, { params });
       const allResults = response.data.results || [];
 
@@ -156,6 +234,7 @@ export const fetchRecipeApiById = async (recipeId: string | number) => {
   }
 };
 
+// Fetch random recipes with robust filtering using complexSearch
 export const fetchRandomRecipes = async (
   number: number = 10,
   filters?: {
@@ -164,33 +243,8 @@ export const fetchRandomRecipes = async (
   }
 ) => {
   try {
-    const url = `${BASE_URL}/recipes/random`;
-    const params: any = {
-      apiKey: API_KEY,
-      number,
-    };
-
-    // Add diet filter (Spoonacular supports: vegetarian, vegan, glutenFree, ketogenic, etc.)
-    if (filters?.diet && filters.diet.length > 0) {
-      // Map common dietary restrictions to Spoonacular format
-      const dietMap: Record<string, string> = {
-        'Vegetarian': 'vegetarian',
-        'Vegan': 'vegan',
-        'Gluten': 'gluten free',
-        'Gluten-Free': 'gluten free',
-        'Ketogenic': 'ketogenic',
-        'Paleo': 'paleo',
-        'Dairy-Free': 'dairy free',
-      };
-
-      const mappedDiets = filters.diet
-        .map(d => dietMap[d] || d.toLowerCase())
-        .join(',');
-
-      if (mappedDiets) {
-        params.tags = mappedDiets;
-      }
-    }
+    // We use complexSearch instead of random endpoint to support excludeIngredients
+    const url = `${BASE_URL}/recipes/complexSearch`;
 
     // Always exclude haram ingredients + merge with user-provided exclusions
     const allExcludedIngredients = [
@@ -198,15 +252,67 @@ export const fetchRandomRecipes = async (
       ...(filters?.excludeIngredients || []),
     ];
 
-    params.excludeIngredients = allExcludedIngredients.join(',');
+    const params: any = {
+      apiKey: API_KEY,
+      number,
+      sort: 'random', // Key to making complexSearch behave like random
+      addRecipeInformation: true, // Need full recipe info
+      excludeIngredients: allExcludedIngredients.join(','),
+    };
 
-    console.log('🔍 Fetching random recipes with filters:', params);
+    // Add diet and intolerance filters
+    if (filters?.diet && filters.diet.length > 0) {
+
+      const knownDiets = ['vegetarian', 'vegan', 'pescatarian', 'paleo', 'primal', 'ketogenic', 'whole30'];
+      const knownIntolerances = ['gluten', 'dairy', 'egg', 'soy', 'peanut', 'tree nut', 'seafood', 'shellfish', 'wheat', 'sesame', 'sulfite'];
+
+      const activeDiets: string[] = [];
+      const activeIntolerances: string[] = [];
+
+      filters.diet.forEach(d => {
+        const lower = d.toLowerCase();
+
+        // Map UI terms to API terms
+        if (lower === 'keto') {
+          activeDiets.push('ketogenic');
+        } else if (lower.includes('fish') && !lower.includes('shellfish')) {
+          activeIntolerances.push('seafood');
+        } else if (lower === 'low-carb') {
+          // Spoonacular doesn't have a direct 'low-carb' diet param
+        } else if (knownDiets.includes(lower)) {
+          activeDiets.push(lower);
+        } else if (knownIntolerances.includes(lower)) {
+          activeIntolerances.push(lower);
+        } else {
+          // Check mapped values or edge cases
+          if (lower.includes('gluten')) activeIntolerances.push('gluten');
+          else if (lower.includes('dairy')) activeIntolerances.push('dairy');
+          else if (lower.includes('egg')) activeIntolerances.push('egg');
+          else if (lower.includes('soy')) activeIntolerances.push('soy');
+          else if (lower.includes('peanut')) activeIntolerances.push('peanut');
+          else if (lower.includes('tree nut') || lower.includes('treenut')) activeIntolerances.push('tree nut');
+          else if (lower.includes('shellfish')) activeIntolerances.push('shellfish');
+          else if (lower.includes('wheat')) activeIntolerances.push('wheat');
+        }
+      });
+
+      if (activeDiets.length > 0) {
+        params.diet = activeDiets.join(',');
+      }
+
+      if (activeIntolerances.length > 0) {
+        params.intolerances = activeIntolerances.join(',');
+      }
+    }
+
+    console.log('🔍 Fetching random recipes (via complexSearch) with params:', JSON.stringify(params));
 
     const response = await axios.get(url, { params });
 
-    console.log(response.data.recipes);
+    console.log(`Found ${response.data.results?.length || 0} recipes`);
 
-    return response.data.recipes || [];
+    // complexSearch returns { results: [...] }, strictly simpler than random endpoint's { recipes: [...] }
+    return response.data.results || [];
   } catch (error) {
     console.log('Error fetching random recipes:', error);
     throw error;

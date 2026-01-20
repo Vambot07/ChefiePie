@@ -224,11 +224,12 @@ export const HomeScreen = () => {
         fetchTodaysMealsAndStats(false);
     }, [userId]);
 
-    // Refresh stats when screen comes into focus (use cache)
+    // Refresh stats and recipes when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             fetchTodaysMealsAndStats(false); // Will use cache if available
-        }, [fetchTodaysMealsAndStats])
+            loadRecipes(); // Reload recipes to apply any new dietary preferences
+        }, [fetchTodaysMealsAndStats, activeCategory]) // Add activeCategory dependency
     );
 
     // OPTIMIZED: Load recently viewed only once
@@ -286,10 +287,16 @@ export const HomeScreen = () => {
 
         try {
             setLoadingCategories(true);
-            const results = await fetchRecipesByCategory(activeCategory, 30);
 
-            const recipesData =
-                activeCategory === 'All' ? results.recipes || [] : results.results || [];
+            // Prepare filters based on user preferences
+            const filters = {
+                diet: user?.dietaryRestrictions || [],
+                excludeIngredients: user?.ingredientsToAvoid || []
+            };
+
+            const results = await fetchRecipesByCategory(activeCategory, 30, filters);
+
+            const recipesData = results.results || [];
 
             const transformedRecipes = recipesData.map((recipe: any, index: number) => ({
                 id: recipe.id?.toString() || index.toString(),
@@ -313,6 +320,11 @@ export const HomeScreen = () => {
 
         try {
             setLoadingIngredients(true);
+            setLoadingIngredients(true);
+
+            // Note: fetchRecipesByIngredients handles standard ingredient search,
+            // but strict exclusion is handled by the API helper if passed.
+            // Currently, we just pass the search terms.
             const results = await fetchRecipesByIngredients(ingredientsList, 30);
 
             const transformedRecipes = results.map((recipe: any, index: number) => ({
