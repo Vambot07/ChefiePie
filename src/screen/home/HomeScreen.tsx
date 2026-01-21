@@ -118,6 +118,7 @@ export const HomeScreen = () => {
     const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
     const [loadingRecent, setLoadingRecent] = useState<boolean>(true);
     const [statsCache, setStatsCache] = useState<{ data: any; timestamp: number } | null>(null);
+    const [categoryCache, setCategoryCache] = useState<{ [category: string]: { data: any[]; timestamp: number } }>({});
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [addedIngredientName, setAddedIngredientName] = useState<string>('');
     const [showSuccessAddModal, setShowSuccessAddModal] = useState<boolean>(false);
@@ -218,17 +219,73 @@ export const HomeScreen = () => {
         }
     }, [userId, statsCache]);
 
+    // --- LOAD RECIPES BY CATEGORY ---
+    const loadRecipes = useCallback(async (forceRefresh: boolean = false) => {
+        const CACHE_KEY = activeCategory;
+        const CACHE_DURATION = 300000; // 5 minutes
+        const now = Date.now();
+
+        // Check cache first
+        if (!forceRefresh && categoryCache[CACHE_KEY] && (now - categoryCache[CACHE_KEY].timestamp) < CACHE_DURATION) {
+            console.log(`✅ Using cached recipes for category: ${activeCategory}`);
+            setCategoryRecipes(categoryCache[CACHE_KEY].data);
+            setInitialLoading(false);
+            return;
+        }
+
+        try {
+            setLoadingCategories(true);
+
+            // Prepare filters based on user preferences
+            const filters = {
+                diet: user?.dietaryRestrictions || [],
+                excludeIngredients: user?.ingredientsToAvoid || []
+            };
+
+            const results = await fetchRecipesByCategory(activeCategory, 30, filters);
+
+            const recipesData = results.results || [];
+
+            const transformedRecipes = recipesData.map((recipe: any, index: number) => ({
+                id: recipe.id?.toString() || index.toString(),
+                title: recipe.title || 'Untitled Recipe',
+                image: recipe.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
+                time: recipe.readyInMinutes ? `${recipe.readyInMinutes} Mins` : 'N/A',
+            }));
+
+            setCategoryRecipes(transformedRecipes);
+
+            // Update cache
+            setCategoryCache(prev => ({
+                ...prev,
+                [CACHE_KEY]: {
+                    data: transformedRecipes,
+                    timestamp: now
+                }
+            }));
+
+        } catch (error) {
+            console.log('Error fetching recipes:', error);
+            Alert.alert('Error', 'Failed to fetch recipes');
+        } finally {
+            setInitialLoading(false);
+            setLoadingCategories(false);
+        }
+    }, [activeCategory, user, categoryCache]);
+
     // OPTIMIZED: Only fetch stats once on mount, use cache on subsequent focuses
     useEffect(() => {
         // Initial load
         fetchTodaysMealsAndStats(false);
     }, [userId]);
 
-    // Refresh stats when screen comes into focus (use cache)
+    // Refresh stats and recipes when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             fetchTodaysMealsAndStats(false); // Will use cache if available
-        }, [fetchTodaysMealsAndStats])
+            loadRecipes(false); // Reload recipes to apply any new dietary preferences, utilizing cache
+            loadRecentlyViewed(); // Refresh recently viewed list
+        }, [fetchTodaysMealsAndStats, activeCategory, loadRecipes]) // Add activeCategory dependency
     );
 
     // OPTIMIZED: Load recently viewed only once
@@ -242,12 +299,13 @@ export const HomeScreen = () => {
         try {
             await Promise.all([
                 fetchTodaysMealsAndStats(true), // Force refresh
+                loadRecipes(true), // Force refresh categories
                 loadRecentlyViewed()
             ]);
         } finally {
             setRefreshing(false);
         }
-    }, [fetchTodaysMealsAndStats]);
+    }, [fetchTodaysMealsAndStats, loadRecipes]);
 
     // --- SHUFFLE AND AUTO SELECT FIRST INGREDIENT ON MOUNT ---
     useEffect(() => {
@@ -263,7 +321,7 @@ export const HomeScreen = () => {
 
     // --- LOAD RECIPES WHEN CATEGORY CHANGES ---
     useEffect(() => {
-        loadRecipes();
+        loadRecipes(false);
     }, [activeCategory]);
 
     // --- CHECK IF THERE ARE CHANGES ---
@@ -281,38 +339,18 @@ export const HomeScreen = () => {
         }
     }, [hasChanges]);
 
-    // --- LOAD RECIPES BY CATEGORY ---
-    const loadRecipes = async () => {
 
-        try {
-            setLoadingCategories(true);
-            const results = await fetchRecipesByCategory(activeCategory, 30);
-
-            const recipesData =
-                activeCategory === 'All' ? results.recipes || [] : results.results || [];
-
-            const transformedRecipes = recipesData.map((recipe: any, index: number) => ({
-                id: recipe.id?.toString() || index.toString(),
-                title: recipe.title || 'Untitled Recipe',
-                image: recipe.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
-                time: recipe.readyInMinutes ? `${recipe.readyInMinutes} Mins` : 'N/A',
-            }));
-
-            setCategoryRecipes(transformedRecipes);
-        } catch (error) {
-            console.log('Error fetching recipes:', error);
-            Alert.alert('Error', 'Failed to fetch recipes');
-        } finally {
-            setInitialLoading(false);
-            setLoadingCategories(false);
-        }
-    };
 
     // --- LOAD RECIPES BY INGREDIENTS ---
     const loadRecipesByIngredients = async (ingredientsList: string[]) => {
 
         try {
             setLoadingIngredients(true);
+            setLoadingIngredients(true);
+
+            // Note: fetchRecipesByIngredients handles standard ingredient search,
+            // but strict exclusion is handled by the API helper if passed.
+            // Currently, we just pass the search terms.
             const results = await fetchRecipesByIngredients(ingredientsList, 30);
 
             const transformedRecipes = results.map((recipe: any, index: number) => ({

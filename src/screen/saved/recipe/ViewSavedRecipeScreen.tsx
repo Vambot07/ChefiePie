@@ -63,6 +63,7 @@ const ViewSavedRecipeScreen = () => {
     const [showUnsaveConfirmation, setShowUnsaveConfirmation] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [shouldNavigateBackOnSuccess, setShouldNavigateBackOnSuccess] = useState(true);
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const scrollViewRef = useRef<ScrollView>(null);
@@ -1279,6 +1280,7 @@ const ViewSavedRecipeScreen = () => {
             await unsaveRecipe(recipe.id);
             setIsSaved(false);
             setSuccessMessage('Recipe has been unsaved successfully.');
+            setShouldNavigateBackOnSuccess(true);
             setShowSuccessModal(true);
         } catch (error) {
             Alert.alert('Error', error instanceof Error ? error.message : 'Failed to unsave recipe');
@@ -1311,7 +1313,9 @@ const ViewSavedRecipeScreen = () => {
         setLoadingAction('adding-to-list');
         try {
             await addItemsToChecklist(selectedIngredients);
-            Alert.alert('Success!', 'Selected ingredients have been added to your shopping list.');
+            setSuccessMessage('Selected ingredients have been added to your shopping list.');
+            setShouldNavigateBackOnSuccess(false);
+            setShowSuccessModal(true);
             setSelectedIngredients([]);
         } catch (error) {
             Alert.alert('Error', 'Could not add ingredients. Please try again.');
@@ -2334,7 +2338,9 @@ const ViewSavedRecipeScreen = () => {
                     buttonText="OK"
                     onClose={() => {
                         setShowSuccessModal(false);
-                        navigation.goBack();
+                        if (shouldNavigateBackOnSuccess) {
+                            navigation.goBack();
+                        }
                     }}
                 />
             </View>

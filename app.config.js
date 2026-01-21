@@ -4,7 +4,7 @@ module.exports = {
     slug: "ChefiePie",
     version: "1.0.0",
     web: {
-      favicon: "./assets/ChefiePieMascotLogo.png"
+      favicon: "./assets/ChefiePieIcon.png"
     },
     experiments: {
       tsconfigPaths: true
@@ -27,15 +27,15 @@ module.exports = {
       ],
       [
         "expo-av",
-    {
-      "microphonePermission": "Allow ChefiePie to access your microphone."
-    }
+        {
+          "microphonePermission": "Allow ChefiePie to access your microphone."
+        }
       ],
       "expo-font",
       "@react-native-google-signin/google-signin"
     ],
     orientation: "portrait",
-    icon: "./assets/ChefiePieLogo.png",
+    icon: "./assets/ChefiePieIcon.png",
     userInterfaceStyle: "light",
     splash: {
       image: "./assets/ChefiePieLogo.png",
@@ -58,7 +58,7 @@ module.exports = {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/ChefiePieMascotLogo.png",
+        foregroundImage: "./assets/ChefiePieIcon.png",
         backgroundColor: "#FFF4E0"
       },
       package: "com.anonymous.chefiePie",

@@ -131,6 +131,7 @@ const FoodPreferenceScreen = () => {
     const [saving, setSaving] = useState(false);
 
     const [showSuccessUpdate, setShowSuccessUpdate] = useState(false);
+    const [dietInfoModal, setDietInfoModal] = useState<{ title: string; message: string } | null>(null);
 
     // Dietary restriction definitions
     const dietaryDefinitions: { [key: string]: string } = {
@@ -139,26 +140,24 @@ const FoodPreferenceScreen = () => {
         'Vegan': 'No animal products at all. Only plant-based foods.\n\n✅ Vegetables, fruits, grains, nuts, beans\n❌ Meat, fish, eggs, dairy, honey',
         'Pescatarian': 'Vegetarian diet plus fish and seafood.\n\n✅ Vegetables, fish, seafood, eggs, dairy\n❌ Meat (beef, pork, chicken)',
         'Paleo': 'Caveman diet - no processed foods or grains.\n\n✅ Meat, fish, eggs, vegetables, fruits, nuts\n❌ Grains, dairy, beans, processed foods',
-        'Low-Carb': 'Limited carbohydrates and sugars.\n\n✅ Meat, fish, vegetables, healthy fats\n❌ Bread, pasta, rice, sugar, starchy foods',
         'Keto': 'Very low-carb, high-fat diet.\n\n✅ Meat, fish, eggs, cheese, low-carb vegetables\n❌ Bread, pasta, rice, sugar, most fruits',
         'Kosher': 'Jewish dietary laws.\n\n✅ Kosher-certified foods, certain meats/fish\n❌ Pork, shellfish, mixing dairy+meat',
-        'Gluten': 'Gluten intolerance/celiac disease.\n\n❌ Wheat, barley, rye, bread, pasta',
-        'Dairy': 'Lactose intolerance or dairy allergy.\n\n❌ Milk, cheese, yogurt, butter, cream',
-        'Egg': 'Egg allergy.\n\n❌ Eggs and egg-based products',
-        'Soy': 'Soy allergy.\n\n❌ Soybeans, tofu, soy sauce, edamame',
-        'Peanut': 'Peanut allergy.\n\n❌ Peanuts and peanut products',
-        'Tree Nut': 'Tree nut allergy.\n\n❌ Almonds, walnuts, cashews, pistachios',
-        'Fish': 'Fish allergy.\n\n❌ All types of fish',
-        'Shellfish': 'Shellfish allergy.\n\n❌ Shrimp, crab, lobster, clams, oysters'
+        'Gluten-Free': 'Gluten intolerance/celiac disease.\n\n❌ Wheat, barley, rye, bread, pasta',
+        'Dairy-Free': 'Lactose intolerance or dairy allergy.\n\n❌ Milk, cheese, yogurt, butter, cream',
+        'Egg Allergy': 'Egg allergy.\n\n❌ Eggs and egg-based products',
+        'Soy Allergy': 'Soy allergy.\n\n❌ Soybeans, tofu, soy sauce, edamame',
+        'Peanut Allergy': 'Peanut allergy.\n\n❌ Peanuts and peanut products',
+        'Tree Nut Allergy': 'Tree nut allergy.\n\n❌ Almonds, walnuts, cashews, pistachios',
+        'Fish Allergy': 'Fish allergy.\n\n❌ All types of fish',
+        'Shellfish Allergy': 'Shellfish allergy.\n\n❌ Shrimp, crab, lobster, clams, oysters'
     };
 
     const showDietInfo = (diet: string) => {
         const definition = dietaryDefinitions[diet] || 'No information available.';
-        Alert.alert(
-            diet,
-            definition,
-            [{ text: 'Got it', style: 'default' }]
-        );
+        setDietInfoModal({
+            title: diet,
+            message: definition
+        });
     };
 
     useEffect(() => {
@@ -171,8 +170,8 @@ const FoodPreferenceScreen = () => {
     }, [user]);
 
     const dietaryOptions = [
-        'None', 'Vegetarian', 'Vegan', 'Pescatarian', 'Paleo', 'Low-Carb', 'Keto', 'Kosher',
-        'Gluten', 'Dairy', 'Egg', 'Soy', 'Peanut', 'Tree Nut', 'Fish', 'Shellfish'
+        'None', 'Vegetarian', 'Vegan', 'Pescatarian', 'Paleo', 'Keto', 'Kosher',
+        'Gluten-Free', 'Dairy-Free', 'Egg Allergy', 'Soy Allergy', 'Peanut Allergy', 'Tree Nut Allergy', 'Fish Allergy', 'Shellfish Allergy'
     ];
 
     const cookingGoalOptions = [
@@ -182,8 +181,8 @@ const FoodPreferenceScreen = () => {
 
     const ingredientOptions = [
         'Mushroom', 'Celery', 'Brussels Sprouts', 'Broccoli', 'Tofu', 'Avocado',
-        'Beet', 'Olives', 'Cilantro', 'Eggplant', 'Tomato', 'Cheese', 'Cauliflower', 'Onion',
-        'Lamb', 'Pork', 'Chicken', 'Shrimp'
+        'Beet', 'Olives', 'Cilantro', 'Eggplant', 'Tomato', 'Cauliflower', 'Onion',
+        'Bell Pepper', 'Cucumber', 'Garlic', 'Ginger'
     ];
 
     const handleDietaryToggle = (option: string) => {
@@ -362,12 +361,12 @@ const FoodPreferenceScreen = () => {
             />
 
             <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-                {/* General Preferences */}
+                {/* Combined Preferences */}
                 <View
                     className="rounded-2xl p-6 mb-6"
                     style={{ backgroundColor: colors.lightPeach }}
                 >
-                    <Text className="text-xl font-bold text-gray-800 mb-4">General Preferences</Text>
+                    <Text className="text-xl font-bold text-gray-800 mb-4">Preferences</Text>
 
                     <Item
                         title="Dietary Restrictions"
@@ -386,14 +385,8 @@ const FoodPreferenceScreen = () => {
                         icon="flag-outline"
                         showChevron={true}
                     />
-                </View>
 
-                {/* Meal Plan Preferences */}
-                <View
-                    className="rounded-2xl p-6 mb-6"
-                    style={{ backgroundColor: colors.lightPeach }}
-                >
-                    <Text className="text-xl font-bold text-gray-800 mb-4">Meal Plan Preferences</Text>
+                    <View className="h-px bg-gray-300 my-2" />
 
                     <Item
                         title="Ingredients to Avoid"
@@ -472,6 +465,17 @@ const FoodPreferenceScreen = () => {
                     ingredientOptions={ingredientOptions}
                 />
             </EditModal>
+
+            <SuccessModal
+                visible={!!dietInfoModal}
+                title={dietInfoModal?.title || 'Information'}
+                message={dietInfoModal?.message || ''}
+                onClose={() => setDietInfoModal(null)}
+                icon="information-circle"
+                iconColor="#3B82F6" // Blue for info
+                iconBgColor="#EFF6FF" // Light blue bg
+                buttonText="Got it"
+            />
 
             <SuccessModal
                 visible={showSuccessUpdate}
