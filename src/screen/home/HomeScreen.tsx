@@ -118,6 +118,7 @@ export const HomeScreen = () => {
     const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
     const [loadingRecent, setLoadingRecent] = useState<boolean>(true);
     const [statsCache, setStatsCache] = useState<{ data: any; timestamp: number } | null>(null);
+    const [categoryCache, setCategoryCache] = useState<{ [category: string]: { data: any[]; timestamp: number } }>({});
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [addedIngredientName, setAddedIngredientName] = useState<string>('');
     const [showSuccessAddModal, setShowSuccessAddModal] = useState<boolean>(false);
@@ -218,72 +219,19 @@ export const HomeScreen = () => {
         }
     }, [userId, statsCache]);
 
-    // OPTIMIZED: Only fetch stats once on mount, use cache on subsequent focuses
-    useEffect(() => {
-        // Initial load
-        fetchTodaysMealsAndStats(false);
-    }, [userId]);
-
-    // Refresh stats and recipes when screen comes into focus
-    useFocusEffect(
-        useCallback(() => {
-            fetchTodaysMealsAndStats(false); // Will use cache if available
-            loadRecipes(); // Reload recipes to apply any new dietary preferences
-        }, [fetchTodaysMealsAndStats, activeCategory]) // Add activeCategory dependency
-    );
-
-    // OPTIMIZED: Load recently viewed only once
-    useEffect(() => {
-        loadRecentlyViewed();
-    }, [userId]);
-
-    // Manual refresh handler
-    const handleManualRefresh = useCallback(async () => {
-        setRefreshing(true);
-        try {
-            await Promise.all([
-                fetchTodaysMealsAndStats(true), // Force refresh
-                loadRecentlyViewed()
-            ]);
-        } finally {
-            setRefreshing(false);
-        }
-    }, [fetchTodaysMealsAndStats]);
-
-    // --- SHUFFLE AND AUTO SELECT FIRST INGREDIENT ON MOUNT ---
-    useEffect(() => {
-        const shuffled = [...baseIngredients].sort(() => 0.5 - Math.random());
-        setIngredients(shuffled);
-        setSelectedIngredients([shuffled[0]]);
-        setTempSelectedIngredients([shuffled[0]]);
-
-        // Auto search by first ingredient
-        loadRecipesByIngredients([shuffled[0]]);
-
-    }, []);
-
-    // --- LOAD RECIPES WHEN CATEGORY CHANGES ---
-    useEffect(() => {
-        loadRecipes();
-    }, [activeCategory]);
-
-    // --- CHECK IF THERE ARE CHANGES ---
-    useEffect(() => {
-        const isDifferent =
-            tempSelectedIngredients.length !== selectedIngredients.length ||
-            !tempSelectedIngredients.every(ing => selectedIngredients.includes(ing));
-        setHasChanges(isDifferent);
-    }, [tempSelectedIngredients, selectedIngredients]);
-
-    // --- SHOW MODAL WHEN THERE ARE CHANGES ---
-    useEffect(() => {
-        if (hasChanges) {
-            setShowModal(true);
-        }
-    }, [hasChanges]);
-
     // --- LOAD RECIPES BY CATEGORY ---
-    const loadRecipes = async () => {
+    const loadRecipes = useCallback(async (forceRefresh: boolean = false) => {
+        const CACHE_KEY = activeCategory;
+        const CACHE_DURATION = 300000; // 5 minutes
+        const now = Date.now();
+
+        // Check cache first
+        if (!forceRefresh && categoryCache[CACHE_KEY] && (now - categoryCache[CACHE_KEY].timestamp) < CACHE_DURATION) {
+            console.log(`✅ Using cached recipes for category: ${activeCategory}`);
+            setCategoryRecipes(categoryCache[CACHE_KEY].data);
+            setInitialLoading(false);
+            return;
+        }
 
         try {
             setLoadingCategories(true);
@@ -306,6 +254,16 @@ export const HomeScreen = () => {
             }));
 
             setCategoryRecipes(transformedRecipes);
+
+            // Update cache
+            setCategoryCache(prev => ({
+                ...prev,
+                [CACHE_KEY]: {
+                    data: transformedRecipes,
+                    timestamp: now
+                }
+            }));
+
         } catch (error) {
             console.log('Error fetching recipes:', error);
             Alert.alert('Error', 'Failed to fetch recipes');
@@ -313,7 +271,75 @@ export const HomeScreen = () => {
             setInitialLoading(false);
             setLoadingCategories(false);
         }
-    };
+    }, [activeCategory, user, categoryCache]);
+
+    // OPTIMIZED: Only fetch stats once on mount, use cache on subsequent focuses
+    useEffect(() => {
+        // Initial load
+        fetchTodaysMealsAndStats(false);
+    }, [userId]);
+
+    // Refresh stats and recipes when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            fetchTodaysMealsAndStats(false); // Will use cache if available
+            loadRecipes(false); // Reload recipes to apply any new dietary preferences, utilizing cache
+            loadRecentlyViewed(); // Refresh recently viewed list
+        }, [fetchTodaysMealsAndStats, activeCategory, loadRecipes]) // Add activeCategory dependency
+    );
+
+    // OPTIMIZED: Load recently viewed only once
+    useEffect(() => {
+        loadRecentlyViewed();
+    }, [userId]);
+
+    // Manual refresh handler
+    const handleManualRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([
+                fetchTodaysMealsAndStats(true), // Force refresh
+                loadRecipes(true), // Force refresh categories
+                loadRecentlyViewed()
+            ]);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [fetchTodaysMealsAndStats, loadRecipes]);
+
+    // --- SHUFFLE AND AUTO SELECT FIRST INGREDIENT ON MOUNT ---
+    useEffect(() => {
+        const shuffled = [...baseIngredients].sort(() => 0.5 - Math.random());
+        setIngredients(shuffled);
+        setSelectedIngredients([shuffled[0]]);
+        setTempSelectedIngredients([shuffled[0]]);
+
+        // Auto search by first ingredient
+        loadRecipesByIngredients([shuffled[0]]);
+
+    }, []);
+
+    // --- LOAD RECIPES WHEN CATEGORY CHANGES ---
+    useEffect(() => {
+        loadRecipes(false);
+    }, [activeCategory]);
+
+    // --- CHECK IF THERE ARE CHANGES ---
+    useEffect(() => {
+        const isDifferent =
+            tempSelectedIngredients.length !== selectedIngredients.length ||
+            !tempSelectedIngredients.every(ing => selectedIngredients.includes(ing));
+        setHasChanges(isDifferent);
+    }, [tempSelectedIngredients, selectedIngredients]);
+
+    // --- SHOW MODAL WHEN THERE ARE CHANGES ---
+    useEffect(() => {
+        if (hasChanges) {
+            setShowModal(true);
+        }
+    }, [hasChanges]);
+
+
 
     // --- LOAD RECIPES BY INGREDIENTS ---
     const loadRecipesByIngredients = async (ingredientsList: string[]) => {
