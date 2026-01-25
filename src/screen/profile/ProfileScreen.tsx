@@ -267,7 +267,7 @@ export default function ProfileScreen() {
                         title="Profile"
                         showBackButton={true}
                         onBack={() => navigation.goBack()}
-                        rightIcon={(!userId || userId === currentUserId && viewMode === 'profile') ? "settings-outline" : undefined}
+                        rightIcon={(!userId || userId === currentUserId && viewMode === 'profile') ? "settings" : undefined}
                         onRightAction={handleSetting}
                     />
 
