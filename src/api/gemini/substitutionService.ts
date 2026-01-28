@@ -14,7 +14,7 @@ export interface SubstitutionResult {
     ingredient: string;
     isEssential: boolean;
     substitutions: string[];
-    impact?: string; 
+    impact?: string;
 }
 
 const MODELS_TO_TRY = [
@@ -24,6 +24,7 @@ const MODELS_TO_TRY = [
     'gemini-2.0-flash',
     'gemini-flash-latest',
     'gemini-pro-latest',
+    'gemini-3-pro',
 ];
 
 /**

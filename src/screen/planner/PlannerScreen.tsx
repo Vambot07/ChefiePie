@@ -173,6 +173,18 @@ export default function PlannerScreen() {
         type: null,
     });
 
+    const [successModal, setSuccessModal] = useState<{
+        visible: boolean;
+        type: 'success' | 'warning' | 'error';
+        title: string;
+        message: string;
+    }>({
+        visible: false,
+        type: 'success',
+        title: '',
+        message: '',
+    });
+
     const buttonRefs = useRef<{ [key: string]: View | null }>({});
     const userId = user?.userId;
 
@@ -673,11 +685,12 @@ export default function PlannerScreen() {
             const alreadyInPlan = existingRecipes.some(recipe => recipe.id === recipeId);
 
             if (alreadyInPlan) {
-                Alert.alert(
-                    'Recipe Already Added',
-                    'This recipe is already in your meal plan for this day.',
-                    [{ text: 'OK' }]
-                );
+                setSuccessModal({
+                    visible: true,
+                    type: 'warning',
+                    title: 'Duplicate Recipe',
+                    message: 'This recipe is already in your meal plan for this day.',
+                });
                 return;
             }
         }
@@ -730,11 +743,12 @@ export default function PlannerScreen() {
                 );
 
                 if (isDuplicate) {
-                    Alert.alert(
-                        'Duplicate Recipe',
-                        'This recipe is already in your meal plan for this day. Please choose a different recipe.',
-                        [{ text: 'OK' }]
-                    );
+                    setSuccessModal({
+                        visible: true,
+                        type: 'warning',
+                        title: 'Duplicate Recipe',
+                        message: 'This recipe is already in your meal plan for this day. Please choose a different recipe.',
+                    });
                     setLoadingSavedRecipes(false);
                     return;
                 }
@@ -813,11 +827,12 @@ export default function PlannerScreen() {
                 );
 
                 if (isDuplicate) {
-                    Alert.alert(
-                        'Duplicate Recipe',
-                        'This recipe is already in your meal plan for this day. Please choose a different recipe.',
-                        [{ text: 'OK' }]
-                    );
+                    setSuccessModal({
+                        visible: true,
+                        type: 'warning',
+                        title: 'Duplicate Recipe',
+                        message: 'This recipe is already in your meal plan for this day. Please choose a different recipe.',
+                    });
                     throw new Error('Duplicate recipe detected');
                 }
 
@@ -1412,6 +1427,18 @@ export default function PlannerScreen() {
                     isDestructive={true}
                 />
             )}
+
+            {/* Success/Warning Modal */}
+            <SuccessModal
+                visible={successModal.visible}
+                title={successModal.title}
+                message={successModal.message}
+                onClose={() => setSuccessModal(prev => ({ ...prev, visible: false }))}
+                icon={successModal.type === 'warning' ? 'alert-circle' : 'checkmark-circle'}
+                iconColor={successModal.type === 'warning' ? '#F59E0B' : '#22C55E'}
+                iconBgColor={successModal.type === 'warning' ? '#FEF3C7' : '#DCFCE7'}
+                buttonText="OK"
+            />
         </View>
     );
 }
